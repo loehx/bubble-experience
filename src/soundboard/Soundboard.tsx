@@ -27,6 +27,9 @@ const CURSOR_SIZE_REM = 7
 const MOBILE_CURSOR_SIZE_REM = 5
 const BACKGROUND_COVER_SCALE = 1.05
 const BUBBLE_REFRACTION_MAG = 1.22
+const MOBILE_MAX_DPR = 1.25
+const MOBILE_MAX_BUBBLES = 16
+const MOBILE_FRAME_INTERVAL_MS = 1000 / 30
 
 export interface SoundboardProps {
   /** Number of live bubbles on screen. */
@@ -273,8 +276,9 @@ function drawBubble(
   radius: number,
   hue: number,
   immune: boolean,
+  refraction: boolean,
 ) {
-  if (background) {
+  if (background && refraction) {
     drawBubbleRefraction(ctx, background, x, y, radius)
 
     const edgeShade = ctx.createRadialGradient(x, y, radius * 0.68, x, y, radius)
@@ -318,6 +322,27 @@ function drawBubble(
     ctx.fill()
   }
   ctx.restore()
+}
+
+function drawBubbleSimple(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  hue: number,
+) {
+  ctx.beginPath()
+  ctx.arc(x, y, radius, 0, Math.PI * 2)
+  ctx.fillStyle = `hsla(${hue}, 65%, 72%, 0.18)`
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.32)'
+  ctx.lineWidth = 1
+  ctx.stroke()
+
+  ctx.beginPath()
+  ctx.arc(x - radius * 0.22, y - radius * 0.26, radius * 0.11, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'
+  ctx.fill()
 }
 
 function useAudioPool() {
@@ -468,6 +493,7 @@ export function Soundboard({
   const bgCanvasRef = useRef<HTMLCanvasElement>(null)
   const bgSampleRef = useRef<HTMLCanvasElement | null>(null)
   const bubbleRendererRef = useRef<BubbleWebGLRenderer | null>(null)
+  const bubbleCtxRef = useRef<CanvasRenderingContext2D | null>(null)
   const webGLDisabledRef = useRef(false)
   const bgImageRef = useRef<HTMLImageElement | null>(null)
   const pointerRef = useRef<PointerCoords>({ x: -9999, y: -9999, active: false })
@@ -496,7 +522,9 @@ export function Soundboard({
     () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches,
   )
   const isMobileRef = useRef(isMobile)
-  const activeBubbleCount = isMobile ? Math.max(1, Math.round(bubbleCount / 2)) : bubbleCount
+  const activeBubbleCount = isMobile
+    ? Math.min(MOBILE_MAX_BUBBLES, Math.max(8, Math.round(bubbleCount / 3)))
+    : bubbleCount
 
   useEffect(() => {
     isMobileRef.current = isMobile
@@ -530,10 +558,19 @@ export function Soundboard({
   }, [isMobile])
 
   const syncPointerActive = useCallback(() => {
+    if (!startedRef.current) {
+      pointerRef.current.active = false
+      return
+    }
+
+    if (isMobileRef.current) {
+      const { x, y } = pointerRef.current
+      pointerRef.current.active = x > -9000 && y > -9000
+      return
+    }
+
     pointerRef.current.active =
-      startedRef.current &&
-      pointerOverRef.current &&
-      (usesMouseRef.current || pointerDownRef.current)
+      pointerOverRef.current && (usesMouseRef.current || pointerDownRef.current)
   }, [])
 
   useEffect(() => {
@@ -545,9 +582,10 @@ export function Soundboard({
       return
     }
 
+    syncPointerActive()
     const { x, y } = pointerRef.current
     syncCursorVisual(x, y, true)
-  }, [started, stopSpawnLoop, syncCursorVisual])
+  }, [started, stopSpawnLoop, syncCursorVisual, syncPointerActive])
 
   useLayoutEffect(() => {
     if (!started) return
@@ -561,6 +599,8 @@ export function Soundboard({
 
   useEffect(() => {
     const trackPointer = (event: PointerEvent) => {
+      if (isMobileRef.current) return
+
       const stage = stageRef.current
       if (!stage) return
 
@@ -607,7 +647,9 @@ export function Soundboard({
     const bgCanvas = bgCanvasRef.current
     if (!node || !canvas) return
     const { width, height } = node.getBoundingClientRect()
-    const dpr = window.devicePixelRatio || 1
+    const dpr = isMobileRef.current
+      ? Math.min(window.devicePixelRatio || 1, MOBILE_MAX_DPR)
+      : window.devicePixelRatio || 1
     dimensionsRef.current = { width, height }
     if (startedRef.current) {
       hideCursorOnElement(canvas)
@@ -630,7 +672,10 @@ export function Soundboard({
       canvas.height = pixelHeight
     }
 
-    if (!webGLDisabledRef.current && !bubbleRendererRef.current) {
+    if (isMobileRef.current) {
+      bubbleRendererRef.current?.destroy()
+      bubbleRendererRef.current = null
+    } else if (!webGLDisabledRef.current && !bubbleRendererRef.current) {
       try {
         bubbleRendererRef.current = new BubbleWebGLRenderer(canvas)
       } catch {
@@ -642,7 +687,10 @@ export function Soundboard({
 
     if (!bubbleRendererRef.current) {
       const ctx = canvas.getContext('2d')
+      bubbleCtxRef.current = ctx
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    } else {
+      bubbleCtxRef.current = null
     }
 
     if (bgCanvas) {
@@ -668,7 +716,9 @@ export function Soundboard({
       if (sampleCtx && image?.complete) {
         sampleCtx.clearRect(0, 0, width, height)
         drawBackgroundCover(sampleCtx, image, width, height)
-        bubbleRendererRef.current?.setBackground(sampleCanvas)
+        if (!isMobileRef.current) {
+          bubbleRendererRef.current?.setBackground(sampleCanvas)
+        }
       }
     }
   }, [])
@@ -724,12 +774,19 @@ export function Soundboard({
     seedBubbles()
     const node = stageRef.current
     if (!node) return
+    let lastWidth = dimensionsRef.current.width
+    let lastHeight = dimensionsRef.current.height
     const observer = new ResizeObserver(() => {
       syncDimensions()
-      seedBubbles()
+      const { width, height } = dimensionsRef.current
+      if (width !== lastWidth || height !== lastHeight) {
+        lastWidth = width
+        lastHeight = height
+        if (width > 0 && height > 0) seedBubbles()
+      }
       cursorHitRadiusRef.current = remToPx(activeCursorSizeRem / 2)
-      if (startedRef.current) {
-        syncCursorVisual(pointerRef.current.x, pointerRef.current.y, true)
+      if (startedRef.current && isMobile) {
+        syncCursorVisual(0, 0, true)
       }
     })
     observer.observe(node)
@@ -737,6 +794,7 @@ export function Soundboard({
       observer.disconnect()
       bubbleRendererRef.current?.destroy()
       bubbleRendererRef.current = null
+      bubbleCtxRef.current = null
     }
   }, [seedBubbles, syncDimensions, activeCursorSizeRem, isMobile, syncCursorVisual])
 
@@ -766,15 +824,23 @@ export function Soundboard({
   useEffect(() => {
     let frame = 0
     let lastTime = performance.now()
+    let lastRenderTime = 0
 
     const step = (time: number) => {
+      const isMobileDevice = isMobileRef.current
+      if (isMobileDevice && time - lastRenderTime < MOBILE_FRAME_INTERVAL_MS) {
+        frame = window.requestAnimationFrame(step)
+        return
+      }
+
       const dt = Math.min(32, time - lastTime) / 1000
       lastTime = time
+      lastRenderTime = time
 
       const { width, height } = dimensionsRef.current
-      const canvas = canvasRef.current
-      const renderer = bubbleRendererRef.current
-      const ctx = renderer ? null : canvas?.getContext('2d')
+      const useRefraction = !isMobileDevice
+      const renderer = useRefraction ? bubbleRendererRef.current : null
+      const ctx = renderer ? null : bubbleCtxRef.current
       const pointer = pointerRef.current
       const hitRadius = cursorHitRadiusRef.current
       const canRender = width && height && (renderer || ctx)
@@ -786,7 +852,8 @@ export function Soundboard({
         if (ctx) ctx.clearRect(0, 0, width, height)
 
         for (const bubble of bubblesRef.current) {
-          let next = { ...bubble, y: bubble.y - bubble.riseSpeed * dt }
+          let next = bubble
+          next.y -= bubble.riseSpeed * dt
 
           if (next.y < -next.radius * 1.5) {
             next = createBubble(width, height, riseMultiplier)
@@ -814,15 +881,20 @@ export function Soundboard({
               immune: false,
             })
           } else if (ctx) {
-            drawBubble(
-              ctx,
-              bgSampleRef.current,
-              visualX,
-              visualY,
-              visualRadius,
-              next.hue,
-              false,
-            )
+            if (isMobileDevice) {
+              drawBubbleSimple(ctx, visualX, visualY, visualRadius, next.hue)
+            } else {
+              drawBubble(
+                ctx,
+                bgSampleRef.current,
+                visualX,
+                visualY,
+                visualRadius,
+                next.hue,
+                false,
+                useRefraction,
+              )
+            }
           }
 
           nextBubbles.push(next)
@@ -868,6 +940,7 @@ export function Soundboard({
         usesMouseRef.current = true
       }
       pointerDownRef.current = true
+      pointerOverRef.current = true
       event.currentTarget.setPointerCapture(event.pointerId)
       updatePointer(event.clientX, event.clientY)
 
@@ -964,7 +1037,9 @@ export function Soundboard({
     syncPointerActive()
     if (!startedRef.current) return
 
-    syncCursorVisual(pointerRef.current.x, pointerRef.current.y, false)
+    if (!isMobileRef.current) {
+      syncCursorVisual(pointerRef.current.x, pointerRef.current.y, false)
+    }
     stopSpawnLoop()
   }, [syncCursorVisual, syncPointerActive, stopSpawnLoop])
 
@@ -1029,15 +1104,6 @@ export function Soundboard({
             {isMobile ? 'Touch the bubbles' : 'Touch the bubbles · press to spawn'}
           </p>
         ) : null}
-        <a
-          href="https://loehx.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="pointer-events-auto whitespace-nowrap rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[11px] font-medium text-white/50 backdrop-blur-sm transition-colors hover:border-white/25 hover:text-white/70"
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          Alexander Löhn - visit me on loehx.com
-        </a>
       </div>
 
       <AnimatePresence>
