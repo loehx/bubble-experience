@@ -1084,7 +1084,7 @@ export function Soundboard({
             src={CURSOR_FRAMES[cursorIndex]}
             alt=""
             draggable={false}
-            className={cn('select-none', isMobile ? 'size-20' : 'size-28')}
+            className={cn('face-outline select-none', isMobile ? 'size-20' : 'size-28')}
           />
         </div>
       ) : null}
@@ -1118,20 +1118,24 @@ export function Soundboard({
             <div className="intro-stage relative flex flex-col items-center">
               <div
                 className={cn(
-                  'intro-face-riser z-0 overflow-hidden',
+                  'intro-face-riser z-0 overflow-hidden p-[3px]',
                   isMobile ? 'size-20' : 'size-28',
                 )}
                 aria-hidden
               >
-                <img
-                  src={CURSOR_FRAMES[cursorIndex]}
-                  alt=""
-                  draggable={false}
+                <div
                   className={cn(
-                    'intro-face-reveal size-full select-none object-contain',
+                    'intro-face-reveal size-full',
                     reduceMotion && 'intro-face-reveal--static',
                   )}
-                />
+                >
+                  <img
+                    src={CURSOR_FRAMES[cursorIndex]}
+                    alt=""
+                    draggable={false}
+                    className="face-outline size-full select-none object-contain"
+                  />
+                </div>
               </div>
               <motion.button
                 type="button"

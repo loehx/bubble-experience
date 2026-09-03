@@ -8,12 +8,49 @@
       content="Enter my immersive experience with 3D bubbles and professional sound effects."
     />
     <title>The Bubble Experience by Alexander Löhn</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The Bubble Experience by Alexander Löhn" />
+    <meta
+      property="og:description"
+      content="Enter my immersive experience with 3D bubbles and professional sound effects."
+    />
+    <meta property="og:url" content="https://loehx.github.io/bubble-experience/" />
+    <meta
+      property="og:image"
+      content="https://loehx.github.io/bubble-experience/og-image.jpg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="627" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The Bubble Experience by Alexander Löhn" />
+    <meta
+      name="twitter:description"
+      content="Enter my immersive experience with 3D bubbles and professional sound effects."
+    />
+    <meta
+      name="twitter:image"
+      content="https://loehx.github.io/bubble-experience/og-image.jpg"
+    />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   </head>
   <body>
+    <svg width="0" height="0" aria-hidden="true" class="pointer-events-none absolute">
+      <defs>
+        <filter id="face-outline" x="-15%" y="-15%" width="130%" height="130%">
+          <feMorphology in="SourceAlpha" operator="dilate" radius="3" result="dilated" />
+          <feFlood flood-color="#ffffff" result="outline-color" />
+          <feComposite in="outline-color" in2="dilated" operator="in" result="outline" />
+          <feMerge>
+            <feMergeNode in="outline" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+    </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

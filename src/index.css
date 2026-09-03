@@ -141,9 +141,13 @@ body {
   padding: 0.1em;
 }
 
+.face-outline {
+  filter: url(#face-outline);
+}
+
 @keyframes intro-face-reveal {
   from {
-    transform: translate3d(0, 100%, 0);
+    transform: translate3d(0, 120%, 0);
   }
 
   to {
