@@ -121,22 +121,83 @@ function remToPx(rem: number) {
 }
 
 const INTRO_LINES = ['START', 'BUBBLE', 'EXPERIENCE'] as const
+const INTRO_HINT_SEGMENTS = [
+  { text: 'For the best experience, ', className: 'font-light' },
+  { text: 'turn sound on', className: 'font-semibold' },
+] as const
+
+function introLetterDelay(index: number) {
+  return {
+    animationDelay: `calc(var(--intro-letter-base-delay) + ${index} * var(--intro-letter-step))`,
+  } as const
+}
+
+function IntroAnimatedChars({
+  segments,
+  startIndex,
+}: {
+  segments: readonly { text: string; className?: string }[]
+  startIndex: number
+}) {
+  let charIndex = startIndex
+
+  return segments.flatMap((segment) =>
+    [...segment.text].map((char) => {
+      const delayIndex = charIndex++
+      return (
+        <span key={`intro-char-${delayIndex}`} className="intro-letter-mask">
+          <span
+            className={cn('intro-letter-reveal', segment.className)}
+            style={introLetterDelay(delayIndex)}
+          >
+            {char === ' ' ? '\u00a0' : char}
+          </span>
+        </span>
+      )
+    }),
+  )
+}
 
 function IntroLetterReveal() {
   return (
-    <span className="intro-letter-stage pointer-events-none text-center text-4xl font-bold uppercase leading-[0.8em] tracking-[-0.08em] text-white opacity-70 transition-opacity group-hover:opacity-100 md:text-6xl lg:text-7xl">
-      {INTRO_LINES.map((line) => (
+    <span className="intro-letter-stage pointer-events-none text-center text-4xl font-bold uppercase leading-[0.8em] tracking-[-0.08em] text-white opacity-90 transition-opacity group-hover:opacity-100 md:text-6xl lg:text-7xl">
+      {INTRO_LINES.map((line, lineIndex) => (
         <span key={line} className="intro-letter-line block overflow-hidden whitespace-nowrap">
           <span className="inline-block whitespace-nowrap">
-            {[...line].map((char, charIndex) => (
-              <span key={`${line}-${charIndex}`} className="intro-letter-mask">
-                <span className="intro-letter-reveal">{char}</span>
-              </span>
-            ))}
+            <IntroAnimatedChars
+              segments={[{ text: line }]}
+              startIndex={INTRO_LINES.slice(0, lineIndex).reduce(
+                (sum, previousLine) => sum + previousLine.length,
+                0,
+              )}
+            />
           </span>
         </span>
       ))}
     </span>
+  )
+}
+
+function IntroSoundHint() {
+  const hintStartIndex = INTRO_LINES.reduce((sum, line) => sum + line.length, 0)
+  const [firstSegment, secondSegment] = INTRO_HINT_SEGMENTS
+
+  return (
+    <p className="pointer-events-none mt-1 text-center text-[11px] uppercase tracking-[0.24em] text-white">
+      <span className="intro-letter-line inline-block overflow-hidden whitespace-nowrap">
+        <span className="inline-block whitespace-nowrap">
+          <IntroAnimatedChars segments={[firstSegment]} startIndex={hintStartIndex} />
+        </span>
+      </span>
+      <span className="intro-letter-line block overflow-hidden whitespace-nowrap md:inline-block">
+        <span className="inline-block whitespace-nowrap">
+          <IntroAnimatedChars
+            segments={[secondSegment]}
+            startIndex={hintStartIndex + firstSegment.text.length}
+          />
+        </span>
+      </span>
+    </p>
   )
 }
 
@@ -1124,7 +1185,7 @@ export function Soundboard({
               >
                 <div
                   className={cn(
-                    'intro-face-riser overflow-hidden p-[3px] opacity-70 transition-opacity group-hover:opacity-100',
+                    'intro-face-riser overflow-hidden p-[3px] opacity-90 transition-opacity group-hover:opacity-100',
                     isMobile ? 'size-20' : 'size-28',
                   )}
                 >
@@ -1151,6 +1212,7 @@ export function Soundboard({
               >
                 <IntroLetterReveal />
               </motion.button>
+              <IntroSoundHint />
             </div>
           </motion.div>
         ) : null}
