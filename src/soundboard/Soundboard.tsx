@@ -1115,11 +1115,11 @@ export function Soundboard({
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0 : motionDuration.standard }}
           >
-            <div className="intro-stage relative flex flex-col items-center">
+            <div className="intro-stage group relative flex flex-col items-center">
               <motion.button
                 type="button"
                 aria-label="Start the experience"
-                className="group relative z-0 cursor-pointer transition-transform active:scale-95"
+                className="relative z-0 cursor-pointer transition-transform active:scale-95"
                 onPointerDown={handleStart}
               >
                 <div
@@ -1146,7 +1146,7 @@ export function Soundboard({
               <motion.button
                 type="button"
                 aria-label="Start the experience"
-                className="group relative z-10 cursor-pointer px-4 py-3 transition-transform active:scale-95"
+                className="relative z-10 cursor-pointer px-4 py-3 transition-transform active:scale-95"
                 onPointerDown={handleStart}
               >
                 <IntroLetterReveal />

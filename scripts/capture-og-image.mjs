@@ -14,8 +14,9 @@ const page = await browser.newPage({
 })
 
 await page.goto(url, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'Start the experience' }).click()
-await page.waitForTimeout(5000)
+await page.getByRole('button', { name: 'Start the experience' }).first().waitFor({ state: 'visible' })
+// Intro face finishes at ~2.5s (1.5s delay + 1s animation).
+await page.waitForTimeout(3000)
 
 await page.screenshot({
   path: output,
