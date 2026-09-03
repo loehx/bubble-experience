@@ -1099,7 +1099,7 @@ export function Soundboard({
         {showHint && started ? (
           <p
             id={hintId}
-            className="rounded-full border border-white/15 bg-black/35 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/55 backdrop-blur-sm"
+            className="whitespace-nowrap rounded-full border border-white/15 bg-black/35 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/55 backdrop-blur-sm"
           >
             {isMobile ? 'Touch the bubbles' : 'Touch the bubbles · press to spawn'}
           </p>
