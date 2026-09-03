@@ -1,4 +1,4 @@
-const SOUND_COUNT = 23
+const SOUND_COUNT = 18
 
 export const SOUNDBOARD_SOUND_ENTRIES = Array.from({ length: SOUND_COUNT }, (_, index) => {
   const name = `${index + 1}.m4a`

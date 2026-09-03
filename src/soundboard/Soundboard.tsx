@@ -490,7 +490,7 @@ function Burst({ burst, reduceMotion }: { burst: BurstState; reduceMotion: boole
 
 export function Soundboard({
   bubbleCount = 48,
-  riseSpeed = 1,
+  riseSpeed = 2,
   showHint = true,
   className,
 }: SoundboardProps) {
@@ -522,6 +522,17 @@ export function Soundboard({
   const riseMultiplier = riseSpeed * (reduceMotion ? 0.55 : 1)
   const background = useMemo(() => pickBackgroundImage(), [])
   const backgroundImage = background.src
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches,
+  )
+  const activeBubbleCount = isMobile ? Math.max(1, Math.round(bubbleCount / 2)) : bubbleCount
+
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)')
+    const onChange = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   useLayoutEffect(() => {
     lockSystemCursor()
@@ -652,10 +663,10 @@ export function Soundboard({
   const seedBubbles = useCallback(() => {
     const { width, height } = dimensionsRef.current
     if (!width || !height) return
-    bubblesRef.current = Array.from({ length: bubbleCount }, () =>
+    bubblesRef.current = Array.from({ length: activeBubbleCount }, () =>
       createBubbleScattered(width, height, riseMultiplier),
     )
-  }, [bubbleCount, riseMultiplier])
+  }, [activeBubbleCount, riseMultiplier])
 
   const spawnBubblesAt = useCallback(
     (x: number, y: number, count = 1) => {
@@ -665,10 +676,10 @@ export function Soundboard({
       const spawned = Array.from({ length: count }, () =>
         createBubbleAt(x, y, width, height, riseMultiplier),
       )
-      const maxBubbles = bubbleCount + 32
+      const maxBubbles = activeBubbleCount + 32
       bubblesRef.current = [...bubblesRef.current, ...spawned].slice(-maxBubbles)
     },
-    [bubbleCount, riseMultiplier],
+    [activeBubbleCount, riseMultiplier],
   )
 
   useEffect(() => {
@@ -940,14 +951,25 @@ export function Soundboard({
         ))}
       </AnimatePresence>
 
-      {showHint && started ? (
-        <p
-          id={hintId}
-          className="pointer-events-none fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/15 bg-black/35 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/55 backdrop-blur-sm"
+      <div className="pointer-events-none fixed bottom-4 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2">
+        {showHint && started ? (
+          <p
+            id={hintId}
+            className="rounded-full border border-white/15 bg-black/35 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/55 backdrop-blur-sm"
+          >
+            Touch the bubbles · press to spawn
+          </p>
+        ) : null}
+        <a
+          href="https://loehx.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pointer-events-auto rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[11px] font-medium text-white/50 backdrop-blur-sm transition-colors hover:border-white/25 hover:text-white/70"
+          onPointerDown={(event) => event.stopPropagation()}
         >
-          Touch the bubbles · press to spawn
-        </p>
-      ) : null}
+          Alexander Löhn - visit me on loehx.com
+        </a>
+      </div>
 
       <AnimatePresence>
         {!started ? (
