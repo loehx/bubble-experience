@@ -26,3 +26,158 @@ body {
   width: 100%;
   min-height: 100svh;
 }
+
+@keyframes intro-letter-reveal {
+  from {
+    opacity: 0.35;
+    transform: translate3d(0, -115%, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.intro-stage {
+  --intro-letter-duration: 1.5s;
+  --intro-letter-ease: cubic-bezier(0, 1, 0.3, 1);
+  --intro-letter-base-delay: 0.2s;
+  --intro-letter-step: 0.02s;
+  --intro-face-duration: 1s;
+  --intro-face-ease: cubic-bezier(0, 1, 0.3, 1);
+  --intro-face-delay: 1.5s;
+}
+
+.intro-letter-line:nth-child(1) .intro-letter-mask:nth-child(1) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 0 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(1) .intro-letter-mask:nth-child(2) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 1 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(1) .intro-letter-mask:nth-child(3) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 2 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(1) .intro-letter-mask:nth-child(4) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 3 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(1) .intro-letter-mask:nth-child(5) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 4 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(2) .intro-letter-mask:nth-child(1) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 5 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(2) .intro-letter-mask:nth-child(2) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 6 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(2) .intro-letter-mask:nth-child(3) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 7 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(2) .intro-letter-mask:nth-child(4) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 8 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(2) .intro-letter-mask:nth-child(5) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 9 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(2) .intro-letter-mask:nth-child(6) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 10 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(1) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 11 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(2) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 12 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(3) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 13 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(4) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 14 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(5) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 15 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(6) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 16 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(7) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 17 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(8) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 18 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(9) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 19 * var(--intro-letter-step));
+}
+
+.intro-letter-line:nth-child(3) .intro-letter-mask:nth-child(10) .intro-letter-reveal {
+  animation-delay: calc(var(--intro-letter-base-delay) + 20 * var(--intro-letter-step));
+}
+
+.intro-letter-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  margin: -0.1em;
+  padding: 0.1em;
+}
+
+@keyframes intro-face-reveal {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.intro-face-reveal {
+  display: block;
+  animation: intro-face-reveal var(--intro-face-duration) var(--intro-face-ease) both;
+  animation-delay: var(--intro-face-delay);
+  will-change: transform;
+}
+
+.intro-face-reveal--static {
+  animation: none;
+  transform: translate3d(0, 0, 0);
+}
+
+.intro-letter-reveal {
+  display: inline-block;
+  animation: intro-letter-reveal var(--intro-letter-duration) var(--intro-letter-ease) both;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-face-reveal {
+    animation: none;
+    transform: translate3d(0, 0, 0);
+  }
+
+  .intro-letter-reveal {
+    animation: none;
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}

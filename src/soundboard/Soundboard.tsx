@@ -20,12 +20,13 @@ import {
   unlockSystemCursor,
 } from './hideSystemCursor'
 import { pickBackgroundImage } from './backgrounds'
+import { BubbleWebGLRenderer } from './bubbleWebGL'
 import { SOUNDBOARD_SOUND_ENTRIES, pickWeightedSoundIndex, SPAWN_SOUND_SRC } from './sounds'
 
 const CURSOR_SIZE_REM = 7
+const MOBILE_CURSOR_SIZE_REM = 5
 const BACKGROUND_COVER_SCALE = 1.05
-const BUBBLE_REFRACTION_MAG = 1.28
-const BUBBLE_REFRACTION_WARP = 0.52
+const BUBBLE_REFRACTION_MAG = 1.22
 
 export interface SoundboardProps {
   /** Number of live bubbles on screen. */
@@ -116,48 +117,17 @@ function remToPx(rem: number) {
   return rem * (Number.isFinite(root) ? root : 16)
 }
 
-const INTRO_LINES = ['START', 'THE', 'EXPERIENCE'] as const
-const INTRO_LETTER_BASE_DELAY_S = 0.2
-const INTRO_LETTER_STEP_S = 0.02
-const INTRO_LETTER_DURATION_S = 1.5
-const INTRO_LETTER_EASE: [number, number, number, number] = [0, 1, 0.3, 1]
+const INTRO_LINES = ['START', 'BUBBLE', 'EXPERIENCE'] as const
 
-const INTRO_LINE_LETTERS = INTRO_LINES.map((line, lineIndex) => {
-  const startIndex = INTRO_LINES.slice(0, lineIndex).reduce((sum, entry) => sum + entry.length, 0)
-  return {
-    line,
-    letters: [...line].map((char, charIndex) => ({
-      char,
-      globalIndex: startIndex + charIndex,
-    })),
-  }
-})
-
-function IntroLetterReveal({ reduceMotion }: { reduceMotion: boolean }) {
+function IntroLetterReveal() {
   return (
-    <span className="pointer-events-none text-center text-4xl font-bold uppercase leading-[0.8em] tracking-[-0.08em] text-white opacity-70 transition-opacity group-hover:opacity-100 md:text-6xl lg:text-7xl">
-      {INTRO_LINE_LETTERS.map(({ line, letters }) => (
-        <span key={line} className="block overflow-hidden whitespace-nowrap">
+    <span className="intro-letter-stage pointer-events-none text-center text-4xl font-bold uppercase leading-[0.8em] tracking-[-0.08em] text-white opacity-70 transition-opacity group-hover:opacity-100 md:text-6xl lg:text-7xl">
+      {INTRO_LINES.map((line) => (
+        <span key={line} className="intro-letter-line block overflow-hidden whitespace-nowrap">
           <span className="inline-block whitespace-nowrap">
-            {letters.map(({ char, globalIndex }) => (
-              <span
-                key={`${line}-${globalIndex}`}
-                className="inline-block overflow-hidden align-top -m-[0.1em] p-[0.1em]"
-              >
-                <motion.span
-                  className="inline-block"
-                  initial={{ y: reduceMotion ? 0 : '-115%' }}
-                  animate={{ y: 0 }}
-                  transition={{
-                    duration: reduceMotion ? 0 : INTRO_LETTER_DURATION_S,
-                    ease: INTRO_LETTER_EASE,
-                    delay: reduceMotion
-                      ? 0
-                      : INTRO_LETTER_BASE_DELAY_S + globalIndex * INTRO_LETTER_STEP_S,
-                  }}
-                >
-                  {char}
-                </motion.span>
+            {[...line].map((char, charIndex) => (
+              <span key={`${line}-${charIndex}`} className="intro-letter-mask">
+                <span className="intro-letter-reveal">{char}</span>
               </span>
             ))}
           </span>
@@ -273,61 +243,24 @@ function drawBubbleRefraction(
   x: number,
   y: number,
   radius: number,
-  simplified: boolean,
 ) {
   ctx.save()
   ctx.beginPath()
   ctx.arc(x, y, radius, 0, Math.PI * 2)
   ctx.clip()
 
-  if (simplified) {
-    const sampleSize = (radius * 2) / BUBBLE_REFRACTION_MAG
-    ctx.drawImage(
-      background,
-      x - sampleSize / 2,
-      y - sampleSize / 2,
-      sampleSize,
-      sampleSize,
-      x - radius,
-      y - radius,
-      radius * 2,
-      radius * 2,
-    )
-    ctx.restore()
-    return
-  }
-
-  const strips = Math.min(22, Math.max(10, Math.floor(radius / 2.2)))
-
-  for (let strip = 0; strip < strips; strip += 1) {
-    const t0 = strip / strips
-    const t1 = (strip + 1) / strips
-    const destY = y - radius + t0 * radius * 2
-    const destHeight = (t1 - t0) * radius * 2
-    const midY = destY + destHeight / 2
-    const ny = (midY - y) / radius
-    const edge = Math.sqrt(Math.max(0, 1 - ny * ny))
-    const destHalfWidth = radius * edge
-
-    if (destHalfWidth < 0.75) continue
-
-    const lens = 1 - edge
-    const warpOffset = lens * lens * BUBBLE_REFRACTION_WARP * radius
-    const sampleHalfWidth = destHalfWidth / BUBBLE_REFRACTION_MAG
-    const sampleHeight = destHeight / BUBBLE_REFRACTION_MAG
-
-    ctx.drawImage(
-      background,
-      x - sampleHalfWidth - warpOffset * Math.sign(ny || 1),
-      midY - sampleHeight / 2,
-      sampleHalfWidth * 2,
-      sampleHeight,
-      x - destHalfWidth,
-      destY,
-      destHalfWidth * 2,
-      destHeight,
-    )
-  }
+  const sampleSize = (radius * 2) / BUBBLE_REFRACTION_MAG
+  ctx.drawImage(
+    background,
+    x - sampleSize / 2,
+    y - sampleSize / 2,
+    sampleSize,
+    sampleSize,
+    x - radius,
+    y - radius,
+    radius * 2,
+    radius * 2,
+  )
 
   ctx.restore()
 }
@@ -340,10 +273,9 @@ function drawBubble(
   radius: number,
   hue: number,
   immune: boolean,
-  simplifiedRefraction: boolean,
 ) {
   if (background) {
-    drawBubbleRefraction(ctx, background, x, y, radius, simplifiedRefraction)
+    drawBubbleRefraction(ctx, background, x, y, radius)
 
     const edgeShade = ctx.createRadialGradient(x, y, radius * 0.68, x, y, radius)
     edgeShade.addColorStop(0, 'rgba(0,0,0,0)')
@@ -535,6 +467,8 @@ export function Soundboard({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const bgCanvasRef = useRef<HTMLCanvasElement>(null)
   const bgSampleRef = useRef<HTMLCanvasElement | null>(null)
+  const bubbleRendererRef = useRef<BubbleWebGLRenderer | null>(null)
+  const webGLDisabledRef = useRef(false)
   const bgImageRef = useRef<HTMLImageElement | null>(null)
   const pointerRef = useRef<PointerCoords>({ x: -9999, y: -9999, active: false })
   const pointerOverRef = useRef(false)
@@ -543,11 +477,11 @@ export function Soundboard({
   const bubblesRef = useRef<BubbleState[]>([])
   const dimensionsRef = useRef({ width: 0, height: 0 })
   const lastSpawnAtRef = useRef(0)
-  const cursorElRef = useRef<HTMLImageElement>(null)
+  const cursorElRef = useRef<HTMLDivElement>(null)
   const cursorHitRadiusRef = useRef(remToPx(CURSOR_SIZE_REM / 2))
   const [bursts, setBursts] = useState<BurstState[]>([])
   const [lastPlayed, setLastPlayed] = useState<string | null>(null)
-  const [cursorIndex, setCursorIndex] = useState(0)
+  const [cursorIndex, setCursorIndex] = useState(3)
   const [started, setStarted] = useState(false)
   const startedRef = useRef(false)
   const [searchParams] = useSearchParams()
@@ -561,7 +495,12 @@ export function Soundboard({
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches,
   )
+  const isMobileRef = useRef(isMobile)
   const activeBubbleCount = isMobile ? Math.max(1, Math.round(bubbleCount / 2)) : bubbleCount
+
+  useEffect(() => {
+    isMobileRef.current = isMobile
+  }, [isMobile])
 
   useEffect(() => {
     const mq = window.matchMedia('(pointer: coarse)')
@@ -571,20 +510,24 @@ export function Soundboard({
   }, [])
 
   useLayoutEffect(() => {
+    if (!started) return
+
     lockSystemCursor()
     hideCursorOnElement(stageRef.current)
     hideCursorOnElement(canvasRef.current)
+
     return () => {
       unlockSystemCursor()
     }
-  }, [])
+  }, [started])
 
   const syncCursorVisual = useCallback((x: number, y: number, visible: boolean) => {
     const cursor = cursorElRef.current
-    if (!cursor) return
+    if (!cursor || !startedRef.current) return
+
     cursor.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`
-    cursor.style.opacity = visible ? '1' : '0'
-  }, [])
+    cursor.style.opacity = isMobile || visible ? '1' : '0'
+  }, [isMobile])
 
   const syncPointerActive = useCallback(() => {
     pointerRef.current.active =
@@ -599,8 +542,22 @@ export function Soundboard({
       pointerDownRef.current = false
       pointerRef.current.active = false
       stopSpawnLoop()
+      return
     }
-  }, [started, stopSpawnLoop])
+
+    const { x, y } = pointerRef.current
+    syncCursorVisual(x, y, true)
+  }, [started, stopSpawnLoop, syncCursorVisual])
+
+  useLayoutEffect(() => {
+    if (!started) return
+
+    syncCursorVisual(
+      pointerRef.current.x,
+      pointerRef.current.y,
+      pointerOverRef.current,
+    )
+  }, [started, syncCursorVisual])
 
   useEffect(() => {
     const trackPointer = (event: PointerEvent) => {
@@ -620,12 +577,15 @@ export function Soundboard({
         if (pointerOverRef.current) {
           pointerOverRef.current = false
           syncPointerActive()
-          syncCursorVisual(pointerRef.current.x, pointerRef.current.y, false)
+          if (startedRef.current && !isMobileRef.current) {
+            syncCursorVisual(pointerRef.current.x, pointerRef.current.y, false)
+          }
         }
         return
       }
 
       pointerOverRef.current = true
+      if (!startedRef.current) return
 
       const x = event.clientX - rect.left
       const y = event.clientY - rect.top
@@ -649,13 +609,41 @@ export function Soundboard({
     const { width, height } = node.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
     dimensionsRef.current = { width, height }
-    canvas.width = Math.floor(width * dpr)
-    canvas.height = Math.floor(height * dpr)
+    if (startedRef.current) {
+      hideCursorOnElement(canvas)
+    }
+
+    const pixelWidth = Math.floor(width * dpr)
+    const pixelHeight = Math.floor(height * dpr)
     canvas.style.width = `${width}px`
     canvas.style.height = `${height}px`
-    hideCursorOnElement(canvas)
-    const ctx = canvas.getContext('2d')
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+    const sizeChanged =
+      canvas.width !== pixelWidth ||
+      canvas.height !== pixelHeight ||
+      !bubbleRendererRef.current
+
+    if (sizeChanged) {
+      bubbleRendererRef.current?.destroy()
+      bubbleRendererRef.current = null
+      canvas.width = pixelWidth
+      canvas.height = pixelHeight
+    }
+
+    if (!webGLDisabledRef.current && !bubbleRendererRef.current) {
+      try {
+        bubbleRendererRef.current = new BubbleWebGLRenderer(canvas)
+      } catch {
+        webGLDisabledRef.current = true
+      }
+    }
+
+    bubbleRendererRef.current?.resize(width, height, dpr)
+
+    if (!bubbleRendererRef.current) {
+      const ctx = canvas.getContext('2d')
+      if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
 
     if (bgCanvas) {
       bgCanvas.width = Math.floor(width * dpr)
@@ -680,6 +668,7 @@ export function Soundboard({
       if (sampleCtx && image?.complete) {
         sampleCtx.clearRect(0, 0, width, height)
         drawBackgroundCover(sampleCtx, image, width, height)
+        bubbleRendererRef.current?.setBackground(sampleCanvas)
       }
     }
   }, [])
@@ -719,14 +708,16 @@ export function Soundboard({
     [activeBubbleCount, riseMultiplier],
   )
 
+  const activeCursorSizeRem = isMobile ? MOBILE_CURSOR_SIZE_REM : CURSOR_SIZE_REM
+
   useEffect(() => {
     const syncHitRadius = () => {
-      cursorHitRadiusRef.current = remToPx(CURSOR_SIZE_REM / 2)
+      cursorHitRadiusRef.current = remToPx(activeCursorSizeRem / 2)
     }
     syncHitRadius()
     window.addEventListener('resize', syncHitRadius)
     return () => window.removeEventListener('resize', syncHitRadius)
-  }, [])
+  }, [activeCursorSizeRem])
 
   useEffect(() => {
     syncDimensions()
@@ -736,11 +727,18 @@ export function Soundboard({
     const observer = new ResizeObserver(() => {
       syncDimensions()
       seedBubbles()
-      cursorHitRadiusRef.current = remToPx(CURSOR_SIZE_REM / 2)
+      cursorHitRadiusRef.current = remToPx(activeCursorSizeRem / 2)
+      if (startedRef.current) {
+        syncCursorVisual(pointerRef.current.x, pointerRef.current.y, true)
+      }
     })
     observer.observe(node)
-    return () => observer.disconnect()
-  }, [seedBubbles, syncDimensions])
+    return () => {
+      observer.disconnect()
+      bubbleRendererRef.current?.destroy()
+      bubbleRendererRef.current = null
+    }
+  }, [seedBubbles, syncDimensions, activeCursorSizeRem, isMobile, syncCursorVisual])
 
   const popBubble = useCallback(
     (bubble: BubbleState, x: number, y: number) => {
@@ -775,14 +773,17 @@ export function Soundboard({
 
       const { width, height } = dimensionsRef.current
       const canvas = canvasRef.current
-      const ctx = canvas?.getContext('2d')
+      const renderer = bubbleRendererRef.current
+      const ctx = renderer ? null : canvas?.getContext('2d')
       const pointer = pointerRef.current
       const hitRadius = cursorHitRadiusRef.current
+      const canRender = width && height && (renderer || ctx)
 
-      if (ctx && width && height) {
+      if (canRender) {
         const nextBubbles: BubbleState[] = []
+        const drawList: Parameters<BubbleWebGLRenderer['render']>[0] = []
 
-        ctx.clearRect(0, 0, width, height)
+        if (ctx) ctx.clearRect(0, 0, width, height)
 
         for (const bubble of bubblesRef.current) {
           let next = { ...bubble, y: bubble.y - bubble.riseSpeed * dt }
@@ -804,19 +805,30 @@ export function Soundboard({
             }
           }
 
-          drawBubble(
-            ctx,
-            bgSampleRef.current,
-            visualX,
-            visualY,
-            visualRadius,
-            next.hue,
-            false,
-            !!reduceMotion,
-          )
+          if (renderer) {
+            drawList.push({
+              x: visualX,
+              y: visualY,
+              radius: visualRadius,
+              hue: next.hue,
+              immune: false,
+            })
+          } else if (ctx) {
+            drawBubble(
+              ctx,
+              bgSampleRef.current,
+              visualX,
+              visualY,
+              visualRadius,
+              next.hue,
+              false,
+            )
+          }
+
           nextBubbles.push(next)
         }
 
+        renderer?.render(drawList)
         bubblesRef.current = nextBubbles
       }
 
@@ -829,6 +841,8 @@ export function Soundboard({
 
   const updatePointer = useCallback(
     (clientX: number, clientY: number) => {
+      if (!startedRef.current) return
+
       const node = stageRef.current
       if (!node) return
       const rect = node.getBoundingClientRect()
@@ -841,7 +855,7 @@ export function Soundboard({
       syncPointerActive()
       reinforceSystemCursorHidden()
       hideCursorOnElement(canvasRef.current)
-      syncCursorVisual(x, y, pointerOverRef.current)
+      syncCursorVisual(x, y, isMobileRef.current || pointerOverRef.current)
     },
     [syncCursorVisual, syncPointerActive],
   )
@@ -857,12 +871,14 @@ export function Soundboard({
       event.currentTarget.setPointerCapture(event.pointerId)
       updatePointer(event.clientX, event.clientY)
 
+      if (isMobile) return
+
       const { x, y } = pointerRef.current
       spawnBubblesAt(x, y, Math.floor(randomBetween(4, 9.99)))
       lastSpawnAtRef.current = performance.now()
       startSpawnLoop()
     },
-    [started, unlock, updatePointer, spawnBubblesAt, startSpawnLoop],
+    [started, unlock, updatePointer, spawnBubblesAt, startSpawnLoop, isMobile],
   )
 
   const handlePointerMove = useCallback(
@@ -871,7 +887,7 @@ export function Soundboard({
       if (event.pointerType === 'mouse') usesMouseRef.current = true
       updatePointer(event.clientX, event.clientY)
 
-      if (!pointerDownRef.current) return
+      if (!pointerDownRef.current || isMobile) return
 
       const now = performance.now()
       if (now - lastSpawnAtRef.current < 140) return
@@ -880,7 +896,7 @@ export function Soundboard({
       const { x, y } = pointerRef.current
       spawnBubblesAt(x, y, 1)
     },
-    [updatePointer, spawnBubblesAt],
+    [updatePointer, spawnBubblesAt, isMobile],
   )
 
   const handlePointerUp = useCallback(
@@ -900,6 +916,8 @@ export function Soundboard({
       unlock()
       pointerOverRef.current = true
       if (event.pointerType === 'mouse') usesMouseRef.current = true
+      if (!startedRef.current) return
+
       const node = stageRef.current
       if (!node) return
       const rect = node.getBoundingClientRect()
@@ -944,6 +962,8 @@ export function Soundboard({
     pointerOverRef.current = false
     pointerDownRef.current = false
     syncPointerActive()
+    if (!startedRef.current) return
+
     syncCursorVisual(pointerRef.current.x, pointerRef.current.y, false)
     stopSpawnLoop()
   }, [syncCursorVisual, syncPointerActive, stopSpawnLoop])
@@ -952,11 +972,12 @@ export function Soundboard({
     <section
       ref={stageRef}
       className={cn(
-        'relative min-h-[100svh] w-full cursor-none overflow-hidden bg-[#0a0e1a] touch-none select-none [&_*]:!cursor-none',
+        'relative min-h-[100svh] w-full overflow-hidden bg-[#0a0e1a] touch-none select-none',
+        started && 'cursor-none [&_*]:!cursor-none',
         !started && 'pointer-events-none',
         className,
       )}
-      style={{ cursor: 'none' }}
+      style={started ? { cursor: 'none' } : undefined}
       aria-label="Soundboard — touch bubbles to play sounds"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -973,19 +994,25 @@ export function Soundboard({
 
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 h-full w-full cursor-none"
-        style={{ cursor: 'none' }}
+        className={cn('absolute inset-0 h-full w-full', started && 'cursor-none')}
+        style={started ? { cursor: 'none' } : undefined}
         aria-hidden
       />
 
-      <img
-        ref={cursorElRef}
-        src={CURSOR_FRAMES[cursorIndex]}
-        alt=""
-        aria-hidden
-        draggable={false}
-        className="pointer-events-none absolute left-0 top-0 z-[100] size-28 select-none will-change-transform"
-      />
+      {started ? (
+        <div
+          ref={cursorElRef}
+          className="pointer-events-none absolute left-0 top-0 z-[100] will-change-transform"
+          aria-hidden
+        >
+          <img
+            src={CURSOR_FRAMES[cursorIndex]}
+            alt=""
+            draggable={false}
+            className={cn('select-none', isMobile ? 'size-20' : 'size-28')}
+          />
+        </div>
+      ) : null}
 
       <AnimatePresence>
         {bursts.map((burst) => (
@@ -999,14 +1026,14 @@ export function Soundboard({
             id={hintId}
             className="rounded-full border border-white/15 bg-black/35 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/55 backdrop-blur-sm"
           >
-            Touch the bubbles · press to spawn
+            {isMobile ? 'Touch the bubbles' : 'Touch the bubbles · press to spawn'}
           </p>
         ) : null}
         <a
           href="https://loehx.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="pointer-events-auto rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[11px] font-medium text-white/50 backdrop-blur-sm transition-colors hover:border-white/25 hover:text-white/70"
+          className="pointer-events-auto whitespace-nowrap rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[11px] font-medium text-white/50 backdrop-blur-sm transition-colors hover:border-white/25 hover:text-white/70"
           onPointerDown={(event) => event.stopPropagation()}
         >
           Alexander Löhn - visit me on loehx.com
@@ -1022,15 +1049,33 @@ export function Soundboard({
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0 : motionDuration.standard }}
           >
-            <motion.button
-              type="button"
-              aria-label="Start the experience"
-              className="group cursor-none px-4 py-3 transition-transform active:scale-95"
-              style={{ cursor: 'none' }}
-              onPointerDown={handleStart}
-            >
-              <IntroLetterReveal reduceMotion={!!reduceMotion} />
-            </motion.button>
+            <div className="intro-stage relative flex flex-col items-center">
+              <div
+                className={cn(
+                  'intro-face-riser z-0 overflow-hidden',
+                  isMobile ? 'size-20' : 'size-28',
+                )}
+                aria-hidden
+              >
+                <img
+                  src={CURSOR_FRAMES[cursorIndex]}
+                  alt=""
+                  draggable={false}
+                  className={cn(
+                    'intro-face-reveal size-full select-none object-contain',
+                    reduceMotion && 'intro-face-reveal--static',
+                  )}
+                />
+              </div>
+              <motion.button
+                type="button"
+                aria-label="Start the experience"
+                className="group relative z-10 cursor-pointer px-4 py-3 transition-transform active:scale-95"
+                onPointerDown={handleStart}
+              >
+                <IntroLetterReveal />
+              </motion.button>
+            </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
