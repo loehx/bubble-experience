@@ -15,8 +15,8 @@ const page = await browser.newPage({
 
 await page.goto(url, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'Start the experience' }).first().waitFor({ state: 'visible' })
-// Intro face finishes at ~2.5s (1.5s delay + 1s animation).
-await page.waitForTimeout(3000)
+// Intro hint finishes last at ~2.9s (58th letter delay + 1.5s animation).
+await page.waitForTimeout(4500)
 
 await page.screenshot({
   path: output,
