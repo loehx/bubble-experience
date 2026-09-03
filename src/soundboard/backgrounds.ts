@@ -1,16 +1,16 @@
 const BACKGROUND_STORAGE_KEY = 'bubble-experience-bg-index'
 
 export const BACKGROUND_IMAGES = [
-  new URL('./background.jpg', import.meta.url).href,
-  new URL('./background-2.jpg', import.meta.url).href,
-  new URL('./background-3.jpg', import.meta.url).href,
-  new URL('./background-4.jpg', import.meta.url).href,
-  new URL('./background-5.jpg', import.meta.url).href,
-  new URL('./background-6.jpg', import.meta.url).href,
-  new URL('./background-7.jpg', import.meta.url).href,
-  new URL('./background-8.jpg', import.meta.url).href,
-  new URL('./background-9.jpg', import.meta.url).href,
-  new URL('./background-10.jpg', import.meta.url).href,
+  new URL('./backgrounds/background.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-2.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-3.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-4.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-5.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-6.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-7.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-8.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-9.jpg', import.meta.url).href,
+  new URL('./backgrounds/background-10.jpg', import.meta.url).href,
 ] as const
 
 export const BACKGROUND_IMAGE_NAMES = [

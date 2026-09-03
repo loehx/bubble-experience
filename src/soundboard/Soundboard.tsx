@@ -20,7 +20,7 @@ import {
   unlockSystemCursor,
 } from './hideSystemCursor'
 import { pickBackgroundImage } from './backgrounds'
-import { SOUNDBOARD_SOUND_ENTRIES, pickWeightedSoundIndex } from './sounds'
+import { SOUNDBOARD_SOUND_ENTRIES, pickWeightedSoundIndex, SPAWN_SOUND_SRC } from './sounds'
 
 const CURSOR_SIZE_REM = 7
 const BACKGROUND_COVER_SCALE = 1.05
@@ -46,11 +46,12 @@ interface BubbleState {
   swayAmplitude: number
   swayPhase: number
   hue: number
-  /** Earliest time (ms, performance.now) this bubble can be popped. */
-  burstAfter: number
+  /** When set, the bubble grows from small to `radius` over time and cannot be popped until fully grown. */
+  spawnedAt?: number
 }
 
-const SPAWN_BURST_IMMUNITY_MS = 1800
+const BUBBLE_GROW_DURATION_MS = 3000
+const BUBBLE_SPAWN_SCALE = 0.12
 
 interface BurstState {
   id: string
@@ -88,7 +89,6 @@ function createBubble(width: number, height: number, riseMultiplier: number): Bu
     swayAmplitude: randomBetween(6, 22),
     swayPhase: randomBetween(0, Math.PI * 2),
     hue: randomBetween(180, 320),
-    burstAfter: 0,
   }
 }
 
@@ -108,7 +108,6 @@ function createBubbleScattered(
     swayAmplitude: randomBetween(6, 22),
     swayPhase: randomBetween(0, Math.PI * 2),
     hue: randomBetween(180, 320),
-    burstAfter: 0,
   }
 }
 
@@ -185,8 +184,25 @@ function createBubbleAt(
     swayAmplitude: randomBetween(4, 16),
     swayPhase: randomBetween(0, Math.PI * 2),
     hue: randomBetween(180, 320),
-    burstAfter: performance.now() + SPAWN_BURST_IMMUNITY_MS,
+    spawnedAt: performance.now(),
   }
+}
+
+function bubbleCanPop(bubble: BubbleState, time: number) {
+  if (bubble.spawnedAt === undefined) return true
+  return time - bubble.spawnedAt >= BUBBLE_GROW_DURATION_MS
+}
+
+function bubbleVisualRadius(bubble: BubbleState, time: number) {
+  if (bubble.spawnedAt === undefined) return bubble.radius
+
+  const elapsed = time - bubble.spawnedAt
+  if (elapsed >= BUBBLE_GROW_DURATION_MS) return bubble.radius
+
+  const progress = elapsed / BUBBLE_GROW_DURATION_MS
+  const eased = 1 - (1 - progress) ** 3
+  const minRadius = Math.max(4, bubble.radius * BUBBLE_SPAWN_SCALE)
+  return minRadius + (bubble.radius - minRadius) * eased
 }
 
 function bubbleVisualPosition(bubble: BubbleState, time: number) {
@@ -374,6 +390,7 @@ function drawBubble(
 
 function useAudioPool() {
   const poolRef = useRef<HTMLAudioElement[] | null>(null)
+  const spawnAudioRef = useRef<HTMLAudioElement | null>(null)
   const unlockedRef = useRef(false)
 
   const unlock = useCallback(() => {
@@ -384,6 +401,10 @@ function useAudioPool() {
       audio.preload = 'auto'
       return audio
     })
+    const spawnAudio = new Audio(SPAWN_SOUND_SRC)
+    spawnAudio.preload = 'auto'
+    spawnAudio.loop = true
+    spawnAudioRef.current = spawnAudio
     // Satisfy autoplay policy: play+pause a silent tick on first gesture.
     const primer = poolRef.current[0]
     if (primer) {
@@ -423,7 +444,22 @@ function useAudioPool() {
     [unlock],
   )
 
-  return { unlock, playRandom, playSound }
+  const startSpawnLoop = useCallback(() => {
+    unlock()
+    const spawnAudio = spawnAudioRef.current
+    if (!spawnAudio || !spawnAudio.paused) return
+    spawnAudio.currentTime = 0
+    void spawnAudio.play().catch(() => {})
+  }, [unlock])
+
+  const stopSpawnLoop = useCallback(() => {
+    const spawnAudio = spawnAudioRef.current
+    if (!spawnAudio || spawnAudio.paused) return
+    spawnAudio.pause()
+    spawnAudio.currentTime = 0
+  }, [])
+
+  return { unlock, playRandom, playSound, startSpawnLoop, stopSpawnLoop }
 }
 
 function Burst({ burst, reduceMotion }: { burst: BurstState; reduceMotion: boolean }) {
@@ -516,7 +552,7 @@ export function Soundboard({
   const startedRef = useRef(false)
   const [searchParams] = useSearchParams()
   const debug = searchParams.get('debug') === '1'
-  const { unlock, playRandom, playSound } = useAudioPool()
+  const { unlock, playRandom, playSound, startSpawnLoop, stopSpawnLoop } = useAudioPool()
   const hintId = useId()
 
   const riseMultiplier = riseSpeed * (reduceMotion ? 0.55 : 1)
@@ -562,8 +598,9 @@ export function Soundboard({
     if (!started) {
       pointerDownRef.current = false
       pointerRef.current.active = false
+      stopSpawnLoop()
     }
-  }, [started])
+  }, [started, stopSpawnLoop])
 
   useEffect(() => {
     const trackPointer = (event: PointerEvent) => {
@@ -711,9 +748,10 @@ export function Soundboard({
       const played = playRandom()
       if (played) setLastPlayed(played)
       const burstId = `burst-${bubble.id}-${Date.now()}`
+      const popRadius = bubbleVisualRadius(bubble, performance.now())
       setBursts((prev) => [
         ...prev,
-        { id: burstId, x, y, radius: bubble.radius, hue: bubble.hue },
+        { id: burstId, x, y, radius: popRadius, hue: bubble.hue },
       ])
       window.setTimeout(() => {
         setBursts((prev) => prev.filter((burst) => burst.id !== burstId))
@@ -754,11 +792,12 @@ export function Soundboard({
           }
 
           const { x: visualX, y: visualY } = bubbleVisualPosition(next, time)
+          const visualRadius = bubbleVisualRadius(next, time)
 
-          if (pointer.active && time >= next.burstAfter) {
+          if (pointer.active && bubbleCanPop(next, time)) {
             const dx = pointer.x - visualX
             const dy = pointer.y - visualY
-            const reach = hitRadius + next.radius
+            const reach = hitRadius + visualRadius
             if (dx * dx + dy * dy <= reach * reach) {
               popBubble(next, visualX, visualY)
               next = createBubble(width, height, riseMultiplier)
@@ -770,9 +809,9 @@ export function Soundboard({
             bgSampleRef.current,
             visualX,
             visualY,
-            next.radius,
+            visualRadius,
             next.hue,
-            time < next.burstAfter,
+            false,
             !!reduceMotion,
           )
           nextBubbles.push(next)
@@ -821,8 +860,9 @@ export function Soundboard({
       const { x, y } = pointerRef.current
       spawnBubblesAt(x, y, Math.floor(randomBetween(4, 9.99)))
       lastSpawnAtRef.current = performance.now()
+      startSpawnLoop()
     },
-    [started, unlock, updatePointer, spawnBubblesAt],
+    [started, unlock, updatePointer, spawnBubblesAt, startSpawnLoop],
   )
 
   const handlePointerMove = useCallback(
@@ -850,8 +890,9 @@ export function Soundboard({
       }
       pointerDownRef.current = false
       syncPointerActive()
+      stopSpawnLoop()
     },
-    [syncPointerActive],
+    [syncPointerActive, stopSpawnLoop],
   )
 
   const handlePointerEnter = useCallback(
@@ -904,7 +945,8 @@ export function Soundboard({
     pointerDownRef.current = false
     syncPointerActive()
     syncCursorVisual(pointerRef.current.x, pointerRef.current.y, false)
-  }, [syncCursorVisual, syncPointerActive])
+    stopSpawnLoop()
+  }, [syncCursorVisual, syncPointerActive, stopSpawnLoop])
 
   return (
     <section

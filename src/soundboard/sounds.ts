@@ -1,5 +1,7 @@
 const SOUND_COUNT = 18
 
+export const SPAWN_SOUND_SRC = new URL('./sounds/spawn.m4a', import.meta.url).href
+
 export const SOUNDBOARD_SOUND_ENTRIES = Array.from({ length: SOUND_COUNT }, (_, index) => {
   const name = `${index + 1}.m4a`
   return {
