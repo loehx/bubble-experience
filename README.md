@@ -22,12 +22,11 @@ npm run preview
 
 ## GitHub Pages
 
-The site deploys automatically on push to `main` via GitHub Actions (to the `gh-pages` branch).
+The site deploys automatically on push to `main` via GitHub Actions.
 
 1. Push this repo to GitHub.
-2. In the repo, go to **Settings → Pages** and set **Source** to **Deploy from a branch**.
-3. Choose branch **`gh-pages`** and folder **`/ (root)`**, then save.
-4. After the workflow runs, the site is live at [https://loehx.github.io/bubble-experience/](https://loehx.github.io/bubble-experience/).
+2. In the repo, go to **Settings → Pages** and set **Source** to **GitHub Actions**.
+3. After the **Deploy to GitHub Pages** workflow runs, the site is live at [https://loehx.github.io/bubble-experience/](https://loehx.github.io/bubble-experience/).
 
 ## Audio trimming
 
