@@ -1116,27 +1116,33 @@ export function Soundboard({
             transition={{ duration: reduceMotion ? 0 : motionDuration.standard }}
           >
             <div className="intro-stage relative flex flex-col items-center">
-              <div
-                className={cn(
-                  'intro-face-riser z-0 overflow-hidden p-[3px]',
-                  isMobile ? 'size-20' : 'size-28',
-                )}
-                aria-hidden
+              <motion.button
+                type="button"
+                aria-label="Start the experience"
+                className="group relative z-0 cursor-pointer transition-transform active:scale-95"
+                onPointerDown={handleStart}
               >
                 <div
                   className={cn(
-                    'intro-face-reveal size-full',
-                    reduceMotion && 'intro-face-reveal--static',
+                    'intro-face-riser overflow-hidden p-[3px] opacity-70 transition-opacity group-hover:opacity-100',
+                    isMobile ? 'size-20' : 'size-28',
                   )}
                 >
-                  <img
-                    src={CURSOR_FRAMES[cursorIndex]}
-                    alt=""
-                    draggable={false}
-                    className="face-outline size-full select-none object-contain"
-                  />
+                  <div
+                    className={cn(
+                      'intro-face-reveal size-full',
+                      reduceMotion && 'intro-face-reveal--static',
+                    )}
+                  >
+                    <img
+                      src={CURSOR_FRAMES[cursorIndex]}
+                      alt=""
+                      draggable={false}
+                      className="face-outline size-full select-none object-contain"
+                    />
+                  </div>
                 </div>
-              </div>
+              </motion.button>
               <motion.button
                 type="button"
                 aria-label="Start the experience"
