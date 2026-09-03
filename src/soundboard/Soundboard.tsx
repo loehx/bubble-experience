@@ -20,7 +20,7 @@ import {
   unlockSystemCursor,
 } from './hideSystemCursor'
 import { pickBackgroundImage } from './backgrounds'
-import { SOUNDBOARD_SOUND_ENTRIES } from './sounds'
+import { SOUNDBOARD_SOUND_ENTRIES, pickWeightedSoundIndex } from './sounds'
 
 const CURSOR_SIZE_REM = 7
 const BACKGROUND_COVER_SCALE = 1.05
@@ -399,7 +399,7 @@ function useAudioPool() {
     unlock()
     const pool = poolRef.current
     if (!pool?.length) return null
-    const index = Math.floor(Math.random() * pool.length)
+    const index = pickWeightedSoundIndex()
     const clip = pool[index]
     const entry = SOUNDBOARD_SOUND_ENTRIES[index]
     if (!entry) return null
